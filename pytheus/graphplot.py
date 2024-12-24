@@ -217,7 +217,8 @@ def plotFromFile(filename, number_nodes=True, outfile=""):
         sol_dict = json.load(input_file)
     # graph = Graph(sol_dict['graph'])
     # graphPlot(graph.graph, scaled_weights=True, number_nodes=number_nodes, filename=outfile)
-    graphPlotOld(sol_dict['graph'], scaled_weights=True, number_nodes=number_nodes, filename=outfile)
+    # graphPlotOld(sol_dict['graph'], scaled_weights=True, number_nodes=number_nodes, filename=outfile)
+    graphPlotNew(sol_dict['graph'], filename=outfile)
 
 # # Experiment plotting tools
 
