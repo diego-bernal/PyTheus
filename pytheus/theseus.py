@@ -214,9 +214,25 @@ def graphDimensions(edge_list):
     dimensions : list
         List with the dimensions accessible to each node in decreasing order. 
     '''
+    if not edge_list:  # Check if edge_list is empty
+        return [1]  # Return default dimension when graph is empty
+        
     color_nodes = np.array(creatorList(edge_list))
+    if len(color_nodes) == 0:  # Additional check for empty color_nodes
+        return [1]
+        
     num_nodes = color_nodes[-1,0] + 1
-    return [1 + color_nodes[color_nodes[:,0]==ii,1].max() for ii in range(num_nodes)]
+    dimensions = []
+    
+    # Safely compute dimensions for each node
+    for ii in range(num_nodes):
+        node_colors = color_nodes[color_nodes[:,0]==ii,1]
+        if len(node_colors) > 0:
+            dimensions.append(1 + node_colors.max())
+        else:
+            dimensions.append(1)  # Default dimension for isolated nodes
+            
+    return dimensions
 
 
 def stateDimensions(ket_list):
@@ -251,7 +267,6 @@ def stateCatalog(graph_list):
     Parameters
     ----------
     graph_list : list
-        List of graphs.
     
     Returns
     -------
@@ -844,11 +859,26 @@ def mixedTarget(ket_list, mixed_catalog, amplitudes=None, imaginary=False, targe
 
 
 def buildLossString(loss_function, variables):
+    '''
+    Build a callable loss function from a string representation
+    '''
+    # Guard against empty or malformed expressions
+    if not loss_function or loss_function.strip() == '0':
+        return lambda inputs: 0.0, 'lambda inputs: 0.0'
+    
+    # Clean up the expression to avoid division by zero
+    loss_function = loss_function.replace('/(0)', '').replace('/(0 + )', '')
+    loss_function = loss_function.replace('(0)/(', '0/(').replace('+ )', ')')
+    
+    # Build the lambda string
     loss_string = 'lambda ' + ', '.join(variables) + f': {loss_function}'
     loss_string = f'func = lambda inputs: ({loss_string})(*inputs) '
+    
+    # Create the function
     exec(loss_string, globals())
-    return func, loss_string  # we can keep the second as a security check
+    return func, loss_string
 
+# ...existing code...
 
 def stringFunction(str_function, variables):
     '''
