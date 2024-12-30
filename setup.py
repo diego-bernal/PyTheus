@@ -34,7 +34,7 @@ setup(
     long_description=open('README.md').read() if exists('README.md') else '',
     long_description_content_type="text/markdown",
     install_requires=[
-        'sphinx', 'numpy', 'scipy', 'matplotlib', 'termcolor', 'Click'
+        'numpy>=2.1.3', 'sphinx', 'scipy', 'matplotlib', 'termcolor', 'Click'
     ],
     python_requires=">=3.8",
     classifiers=['Operating System :: OS Independent',

@@ -200,7 +200,7 @@ def creatorList(edge_list, allow_rep = False):
 def graphDimensions(edge_list):
     '''
     Estimate the dimensions of a graph based on its edges.
-
+    
     The output dimensions are in decreasing order: we assume the dimension of a node N, is equal or
     larger than the dimension of a node N+1.
     
@@ -217,22 +217,25 @@ def graphDimensions(edge_list):
     if not edge_list:  # Check if edge_list is empty
         return [1]  # Return default dimension when graph is empty
         
-    color_nodes = np.array(creatorList(edge_list))
-    if len(color_nodes) == 0:  # Additional check for empty color_nodes
-        return [1]
-        
-    num_nodes = color_nodes[-1,0] + 1
-    dimensions = []
-    
-    # Safely compute dimensions for each node
-    for ii in range(num_nodes):
-        node_colors = color_nodes[color_nodes[:,0]==ii,1]
-        if len(node_colors) > 0:
-            dimensions.append(1 + node_colors.max())
-        else:
-            dimensions.append(1)  # Default dimension for isolated nodes
+    try:
+        color_nodes = np.asarray(creatorList(edge_list))
+        if len(color_nodes) == 0:  # Additional check for empty color_nodes
+            return [1]
             
-    return dimensions
+        num_nodes = color_nodes[-1,0] + 1
+        dimensions = []
+        
+        # Safely compute dimensions for each node
+        for ii in range(num_nodes):
+            node_colors = color_nodes[color_nodes[:,0]==ii,1]
+            if len(node_colors) > 0:
+                dimensions.append(1 + int(np.max(node_colors)))
+            else:
+                dimensions.append(1)  # Default dimension for isolated nodes
+                
+        return dimensions
+    except (IndexError, ValueError):
+        return [1]  # Fallback for any array operation errors
 
 
 def stateDimensions(ket_list):
@@ -896,7 +899,7 @@ def stringFunction(str_function, variables):
 
 def ptrace(u, keep, dims, optimize=False):
     """Calculate the partial trace of an outer product
-
+    
     ρ_a = Tr_b(|u><u|)
 
     From slek120: https://scicomp.stackexchange.com/a/30057
@@ -917,16 +920,20 @@ def ptrace(u, keep, dims, optimize=False):
     ρ_a : 2D array
         Traced matrix
     """
-    keep = np.asarray(keep)
-    dims = np.asarray(dims)
+    keep = np.asarray(keep, dtype=int)
+    dims = np.asarray(dims, dtype=int)
     Ndim = dims.size
-    Nkeep = np.prod(dims[keep])
+    Nkeep = int(np.prod(dims[keep]))  # Ensure integer output
 
     idx1 = [i for i in range(Ndim)]
     idx2 = [Ndim + i if i in keep else i for i in range(Ndim)]
-    u = u.reshape(dims)
-    rho_a = np.einsum(u, idx1, u.conj(), idx2, optimize=optimize)
-    return rho_a.reshape(Nkeep, Nkeep)
+    try:
+        u = np.asarray(u).reshape(dims)
+        rho_a = np.einsum(u, idx1, u.conj(), idx2, optimize=optimize)
+        return rho_a.reshape(Nkeep, Nkeep)
+    except (ValueError, np.AxisError):
+        # Handle reshape/einsum errors more gracefully
+        raise ValueError("Invalid dimensions for partial trace operation")
 
 
 def compute_entanglement(qstate: np.array, sys_dict: dict, var_factor=0) -> float:
