@@ -215,10 +215,8 @@ def plotFromFile(filename, number_nodes=True, outfile=""):
         raise IOError(f'File does not exist: {filename}')
     with open(filename) as input_file:
         sol_dict = json.load(input_file)
-    # graph = Graph(sol_dict['graph'])
-    # graphPlot(graph.graph, scaled_weights=True, number_nodes=number_nodes, filename=outfile)
-    # graphPlotOld(sol_dict['graph'], scaled_weights=True, number_nodes=number_nodes, filename=outfile)
-    graphPlotNew(sol_dict['graph'], filename=outfile)
+    # Pass both the solution filename and outfile to graphPlotNew
+    graphPlotNew(sol_dict['graph'], filename=filename, outfile=outfile)
 
 # # Experiment plotting tools
 
@@ -331,8 +329,8 @@ def Plot_Edges(ax, V1, V2, colors, side_length, max_len, max_thickness = 5,\
         y = V1[1] + side_length / 10 if V1[1] > 0 else V1[1] - side_length / 10
         x1 = x + r if V1[0] > 0 else x-r
         y1 = y+r if V1[1] > 0 else y-r
-        ax.add_patch(Circle((x,y), radius=r, facecolor='w', edgecolor=colors[0][0][0],\
-                        zorder = 7,linewidth=line_width,alpha = transparency(w) ))
+        ax.add_patch(Circle((x,y), radius=r, facecolor='w',\
+                            edgecolor=colors[0][0][0], zorder = 7,linewidth=line_width,alpha = transparency(w) ))
         if w< 0:
              plot_diamond(ax, x1, y1, r/2, r, zorder = 10 )            
     else:
@@ -648,15 +646,15 @@ def layer0fcrystal (crystal_lst, Numphoton):
 def Get_Color_Weight_Crystals(gea, Numphoton, gcw, Layers):
     colwei =  uniqueList(gea)
     for ii in range(len(colwei)):
-        x =colwei[ii][1]
+        x = colwei[ii][1]
         for jj in range(len(x)):
-            x[jj]=gcw[x[jj]]     
+            x[jj] = gcw[x[jj]]     
     Remove_Duplicate = list(gea for gea,_ in itertools.groupby(gea))
     cw_spdc = []
     for ii in Layers :
         cw = [Remove_Duplicate.index(list(jj)) for jj in ii]
         cw_spdc.append(cw)
-    wc =[]
+    wc = []
     for ii in range(len(colwei)):
         wc.append(colwei[ii][1])
 
@@ -751,7 +749,7 @@ def PlotPathIdentity(graph,  filename= "", width=0.1, figsize= (8, 8) ,
         XDR = Pos0fpath(P0, width)
         for pos in range (len(XDR)):
             Plot_Detector(ax , XDR[pos], YDR, 1,1, height/4 )
-            Plot_Vline(ax ,  pospathy[0][0], YDR, XDR[pos], 'k' )
+            Plot_Vline(ax , pospathy[0][0], YDR, XDR[pos], 'k' )
             Write_Label(ax,  XDR[pos], YDR+width/4, Detector[pos] , fontsize )
 
         lrs = [list(itertools.chain(*pp)) for pp in Layers]
@@ -1094,48 +1092,98 @@ def PlotBulkOpticsPathEncoding(graph, task = 'PathEncoding'  , filename='', widt
     return experiment
 
 
-def graphPlotNew(graph, type_photons = None, DistanceOfVertices=0.1,filename='',
-               show=True,max_thickness = 5, min_thickness = 2, thickness=10, font_size =12,
-              linewidth= 2, de = 5, colors = colors,figsize=10):
-
+def graphPlotNew(graph, type_photons = None, DistanceOfVertices=0.1, filename='',
+               show=True, max_thickness = 5, min_thickness = 2, thickness=10, font_size=12,
+               linewidth= 2, de = 5, colors = colors, figsize=10, scaled_weights=False,
+               weight_product=False, add_title='', number_nodes=True, outfile=''):
+    
     graph = convert_to_fancy_graph(graph)
     GraphEdge = [grouper(2,i)[0] for i in list(sorted(graph.edges))]
     GEC = [grouper(2,i)[1] for i in list(sorted(graph.edges))]
-    GraphEdgeColor  =[encoded_label(ED,get_num_label(colors))for ED in GEC  ]
+    GraphEdgeColor  =[encoded_label(ED,get_num_label(colors))for ED in GEC]
     Num_Vertices = len(np.unique(list(itertools.chain(*GraphEdge))))
     Graphweight = convert_bools_to_ints(graph.weights)
-    g = uniqueList(GraphEdge)
-    posv = PosOfVertices (Num_Vertices, DistanceOfVertices)
     
+    if scaled_weights:
+        try:
+            scale_max = np.max(np.abs(Graphweight))
+            thickness = thickness * np.array(Graphweight) / scale_max
+        except:
+            pass
+
+    g = uniqueList(GraphEdge)
+    posv = PosOfVertices(Num_Vertices, DistanceOfVertices)
+    
+    # Add a safety check for position coordinates
+    def safe_pos_access(posv, posxy):
+        try:
+            return tuple(posv[xy] for xy in posxy)
+        except IndexError:
+            return (0.0, 0.0)
     
     for n, eg in enumerate(g):
         posxy = eg[0]
-        posxy= correct(posxy)
-        c = eg [1]
-        updated_posxy = tuple(posv[xy] for xy in posxy)
-        updated_color = [[GraphEdgeColor[cc],Graphweight[cc]]  for cc in c]
+        posxy = correct(posxy)
+        c = eg[1]
+        updated_posxy = safe_pos_access(posv, posxy)
+        updated_color = [[GraphEdgeColor[cc],Graphweight[cc]] for cc in c]
         g[n] = [updated_posxy, updated_color]
         
     fig, ax = plt.subplots(figsize=(figsize,)*2)
     
-    Plot_Vertices(ax, Num_Vertices, DistanceOfVertices,type_photons, font_size = font_size,\
-                  linewidth=linewidth)
+    # Determine node types if not provided
+    if type_photons is None and filename:
+        try:
+            # Use the input filename directory for finding summary.json
+            file_dir = os.path.dirname(os.path.abspath(filename))
+            config_path = os.path.join(file_dir, 'summary.json')
+            
+            if os.path.exists(config_path):
+                try:
+                    type_photons = Type_Photons(config_path, filename)
+                except Exception as e:
+                    print(f"Warning: Error processing node types: {e}")
+                    type_photons = None
+            else:
+                print(f"Warning: summary.json not found in {file_dir}")
+                type_photons = None
+        except Exception as e:
+            print(f"Warning: Could not determine node types: {e}")
+            type_photons = None
+    
+    Plot_Vertices(ax, Num_Vertices, DistanceOfVertices, type_photons, font_size=font_size,
+                 linewidth=linewidth)
+                 
     max_length = max(g, key=lambda x: len(x[1]))
     max_len = len(max_length[1])
     for eg in g:
-        Plot_Edges(ax, eg[0][0], eg[0][1], eg[1], DistanceOfVertices, max_len = max_len,\
-                  max_thickness = max_thickness ,\
-               min_thickness = min_thickness , thickness=thickness, de = de )   
-    ax.set_aspect(1 )
-    ax.axis('off') 
+        Plot_Edges(ax, eg[0][0], eg[0][1], eg[1], DistanceOfVertices, max_len=max_len,
+                  max_thickness=max_thickness, min_thickness=min_thickness, 
+                  thickness=thickness, de=de)
+                  
+    # Add title if specified
+    if weight_product:
+        total_weight = np.product(Graphweight)
+        if add_title:
+            ax.set_title(f"{total_weight} {add_title}", fontsize=font_size)
+        else:
+            ax.set_title(f"{total_weight}", fontsize=font_size)
+    elif add_title:
+        ax.set_title(add_title, fontsize=font_size)
+        
+    ax.set_aspect(1)
+    ax.axis('off')
 
     if show:
         plt.show()
         plt.pause(0.01)
     else:
         pass
-    if filename:
-        fig =fig.savefig(filename + ".pdf", bbox_inches='tight')
+    
+    # Use outfile for saving if provided, otherwise use filename
+    save_path = outfile if outfile else filename
+    if save_path:
+        fig.savefig(save_path + ".pdf", bbox_inches='tight')
     return fig
 
 cols = ['#66c2a5', '#fc8d62', '#8da0cb']
