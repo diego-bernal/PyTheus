@@ -706,7 +706,7 @@ def weightProduct(edge_list, imaginary=False):
 
 
 # This expression could also be UNlambdified so we add some check for the Counter
-factorialProduct = lambda lst: np.product([factorial(ii) for ii in Counter(lst).values()])
+factorialProduct = lambda lst: np.prod([factorial(ii) for ii in Counter(lst).values()])
 
 def writeNorm(state_catalog, imaginary=False, hot=False):
     '''
@@ -878,7 +878,6 @@ def buildLossString(loss_function, variables):
     exec(loss_string, globals())
     return func, loss_string
 
-# ...existing code...
 
 def stringFunction(str_function, variables):
     '''
