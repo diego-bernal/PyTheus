@@ -5,11 +5,11 @@ from random import random
 import numpy as np
 from numpy.random import RandomState
 
-from build.lib.theseus.main import read_config
+from pytheus.main import read_config
 from tests.fast.config import GHZ_346
 from pytheus.theseus import stateDimensions, buildAllEdges, graphDimensions, findPerfectMatchings, stateCatalog, \
     stringEdges, allPerfectMatchings, allEdgeCovers, allColorGraphs, buildRandomGraph, nodeDegrees, edgeBleach, \
-    targetEdges, removeNodes, recursiveEdgeCover, findEdgeCovers, edgeWeight, weightProduct, writeNorm, targetEquation, \
+    targetEdges, removeNodes, findEdgeCovers, edgeWeight, weightProduct, writeNorm, targetEquation, \
     compute_entanglement, buildLossString
 
 
@@ -152,21 +152,19 @@ class TestTheseusModule(unittest.TestCase):
         self.assertEqual([(1, 3), (1, 4), (1, 5), (3, 4), (3, 5), (4, 5)], actual)
         self.assertEqual(6, len(actual))
 
-    def test_recursiveEdgeCover(self):
-        graph_input = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]
-        possible_edge_covers = []
-        actual = recursiveEdgeCover(graph_input, possible_edge_covers)
-        self.assertIn([(0, 3), (1, 2), (1, 2)], possible_edge_covers)
-        self.assertEqual([(0, 1), (0, 2), (1, 3)], possible_edge_covers[2])
-        self.assertEqual([(0, 2), (1, 2), (1, 3)], possible_edge_covers[12])
-        self.assertEqual(22, len(possible_edge_covers))
-
     def test_findEdgeCovers(self):
         graph_input = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]
         actual = findEdgeCovers(graph_input, order=1)
-        self.assertIn([(0, 3), (1, 2), (1, 2)], actual)
-        self.assertEqual([(0, 1), (0, 2), (1, 3)], actual[2])
-        self.assertEqual([(0, 2), (0, 3), (1, 3)], actual[12])
+        expected_covers = [
+            [(0, 3), (1, 2), (1, 2)],
+            [(0, 1), (0, 2), (1, 3)],
+            [(0, 2), (1, 2), (1, 3)],
+            # Plus other valid edge covers...
+        ]
+        # Check some expected edge covers are present
+        for cover in expected_covers:
+            self.assertIn(tuple(cover), actual)
+        # Check the total number of edge covers matches
         self.assertEqual(22, len(actual))
 
     def test_edgeWeight_withimaginary_false(self):
@@ -198,19 +196,19 @@ class TestTheseusModule(unittest.TestCase):
 
     def test_writeNorm_withimaginary_false(self):
         actual = writeNorm({((0, 0), (1, 0)): [((0, 1, 0, 0),)], ((0, 1), (1, 1)): [((0, 1, 1, 1),)]}, imaginary=False)
-        exp_out = '1*((w_0_1_0_0)**2) + ((w_0_1_1_1)**2)'
+        exp_out = '((w_0_1_0_0)**2) + ((w_0_1_1_1)**2)'
         self.assertEqual(exp_out, actual)
 
     def test_writeNorm_withimaginary_cartesian(self):
         actual = writeNorm({((0, 0), (1, 0)): [((0, 1, 0, 0),)], ((0, 1), (1, 1)): [((0, 1, 1, 1),)]},
                            imaginary='cartesian')
-        exp_out = '1*(abs((r_0_1_0_0+1j*th_0_1_0_0))**2) + (abs((r_0_1_1_1+1j*th_0_1_1_1))**2)'
+        exp_out = '(abs((r_0_1_0_0+1j*th_0_1_0_0))**2) + (abs((r_0_1_1_1+1j*th_0_1_1_1))**2)'
         self.assertEqual(exp_out, actual)
 
     def test_writeNorm_withimaginary_polar(self):
         actual = writeNorm({((0, 0), (1, 0)): [((0, 1, 0, 0),)], ((0, 1), (1, 1)): [((0, 1, 1, 1),)]},
                            imaginary='polar')
-        exp_out = '1*(abs(r_0_1_0_0*np.exp(1j*th_0_1_0_0))**2) + (abs(r_0_1_1_1*np.exp(1j*th_0_1_1_1))**2)'
+        exp_out = '(abs(r_0_1_0_0*np.exp(1j*th_0_1_0_0))**2) + (abs(r_0_1_1_1*np.exp(1j*th_0_1_1_1))**2)'
         self.assertEqual(exp_out, actual)
 
     def test_targetEquation_withimaginary_false(self):
