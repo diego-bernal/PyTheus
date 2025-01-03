@@ -24,6 +24,7 @@ import pytheus
 from pytheus.main import run_main
 from pytheus.analyzer import get_analyse
 from pytheus.graphplot import plotFromFile
+from pytheus.parallel import run_parallel
 
 
 @click.group()
@@ -33,12 +34,22 @@ def cli():
 
 @cli.command()
 @click.argument('filename')
+@click.option('--threads', '-t', default=1, help='Number of parallel threads to use')
 @click.option('--example', is_flag=True, default=False, help='Load input file from examples directory.')
-def run(filename, example):
-    """Run an input file."""
+def run(filename, threads, example):
+    """Run an input file.
+    
+    Uses multiple threads to execute the same configuration in parallel if --threads > 1.
+    Each thread generates its own output folder and files.
+    
+    The number of samples specified in the configuration will be executed independently 
+    by each thread.
+    """
     try:
-        # run main routine (read config, set up target, run optimization/store results)
-        run_main(filename, example)
+        if threads > 1:
+            run_parallel(filename, threads, example)
+        else:
+            run_main(filename, example)
     except IOError as e:
         click.echo('ERROR:' + str(e))
         sys.exit(1)

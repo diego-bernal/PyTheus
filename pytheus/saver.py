@@ -5,6 +5,7 @@ Created on Thu Jul 14 17:15:59 2022
 @author: janpe
 """
 import os.path
+import threading
 
 from .fancy_classes import Graph
 import numpy as np
@@ -77,6 +78,12 @@ class saver:
         self.config = config
         self.config['dimensions'] = dim
         self.best_state = None
+        # Add thread ID to folder name if running in parallel
+        thread_id = threading.current_thread().name
+        if thread_id.startswith('PytheusThread-'):
+            self.thread_id = f"_thread{thread_id.split('-')[1]}"
+        else:
+            self.thread_id = ""
         self.save_path = self.get_and_create_save_directory()
         self.best_opt = None
 
@@ -88,7 +95,8 @@ class saver:
         folder = self.name_config_file
         if self.name_config_file.endswith('.json'):
             folder = self.name_config_file[:-5]
-        return Path(folder) / self.config.get('foldername', 'try')
+        # Add thread ID to folder name
+        return Path(folder) / f"{self.config.get('foldername', 'try')}{self.thread_id}"
 
     def get_and_create_save_directory(self):
         """
@@ -205,12 +213,15 @@ class saver:
         """
 
         abs_path = self.save_path / self.get_file_name(topo.graph, topo.loss_val)
+        # Create thread-specific best.json for parallel runs
+        best_file = 'best.json' if not self.thread_id else f'best{self.thread_id}.json'
+        
         # update best graph
         if self.check_best_opt(topo):
             self.best_opt = topo
             safe_dic_best = self.get_dictonary_storing_in_json(topo)
-            print('new best state saved to best.json')
-            write_json(self.save_path / 'best' , safe_dic_best, 
+            print(f'{threading.current_thread().name}: New best state saved to {best_file}')
+            write_json(self.save_path / best_file.replace('.json', ''), safe_dic_best, 
                        overwrite_existing_file = True)
             # TODO: rewrite best_graph to file on this line (then we get best graph even if run is cancelled before it is finished)
             
